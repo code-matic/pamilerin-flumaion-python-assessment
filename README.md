@@ -1,221 +1,126 @@
-# FastAPI Boilerplate
+# Employee Retirement Calculator
 
-# Features
-- Async SQLAlchemy session
-- Custom user class
-- Top-level dependency
-- Dependencies for specific permissions
-- Celery
-- Dockerize(Hot reload)
-- Event dispatcher
-- Cache
+A simple FastAPI application that calculates employee retirement information and total salary liability.
 
-## Run
+## Features
 
-```python
-python3 main.py --env local|dev|prod --debug
+- Calculate retirement dates for employees
+- Determine employees retiring by next calculation date (June or December)
+- Calculate total salary liability for retiring employees
+- Simple SQLite database for storing employee information
+- Dockerized deployment
+- Test data seeding for development
+
+## Running with Docker
+
+1. Build and start the application:
+```bash
+docker-compose up --build
 ```
 
-## SQLAlchemy for asyncio context
-
-```alembic revision --autogenerate -m "creat users table"
-
-alembic upgrade head
-
-
+2. In a separate terminal, seed the test data:
+```bash
+docker-compose run seed
 ```
 
-```python
-from core.db import Transactional, session
+The application will be available at http://localhost:8000
 
+### Test Data
 
-@Transactional()
-async def create_user(self):
-    session.add(User(email="padocon@naver.com"))
+The seeder creates 5 sample employees with different retirement scenarios:
+- John Doe: Retiring in June
+- Jane Smith: Retiring in December
+- Robert Johnson: Retiring next year
+- Maria Garcia: Already at retirement age
+- William Brown: Retiring in December
+
+Total salary liability for December retirements: $161,000.00 (Jane Smith + William Brown)
+
+## Running Locally
+
+1. Create a virtual environment:
+```bash
+python -m venv venv
+source venv/bin/activate  # On Windows: venv\Scripts\activate
 ```
 
-Do not use explicit `commit()`. `Transactional` class automatically do.
-
-### Standalone session
-
-According to the current settings, the session is set through middleware.
-
-However, it doesn't go through middleware in tests or background tasks.
-
-So you need to use the `@standalone_session` decorator.
-
-```python
-from core.db import standalone_session
-
-
-@standalone_session
-def test_something():
-    ...
+2. Install dependencies:
+```bash
+pip install -r requirements.txt
 ```
 
-### Multiple databases
-
-Go to `core/config.py` and edit `WRITER_DB_URL` and `READER_DB_URL` in the config class.
-
-
-If you need additional logic to use the database, refer to the `get_bind()` method of `RoutingClass`.
-
-## Custom user for authentication
-
-```python
-from fastapi import Request
-
-
-@home_router.get("/")
-def home(request: Request):
-    return request.user.id
+3. Seed the database (optional):
+```bash
+python seed_data.py
 ```
 
-**Note. you have to pass jwt token via header like `Authorization: Bearer 1234`**
-
-Custom user class automatically decodes header token and store user information into `request.user`
-
-If you want to modify custom user class, you have to update below files.
-
-1. `core/fastapi/schemas/current_user.py`
-2. `core/fastapi/middlewares/authentication.py`
-
-### CurrentUser
-
-```python
-class CurrentUser(BaseModel):
-    id: int = Field(None, description="ID")
+4. Run the application:
+```bash
+python main.py
 ```
 
-Simply add more fields based on your needs.
+The application will be available at http://localhost:8000
 
-### AuthBackend
+## API Endpoints
 
-```python
-current_user = CurrentUser()
+### Create Employee
+```http
+POST /employees/
+```
+Request body:
+```json
+{
+    "first_name": "John",
+    "last_name": "Doe",
+    "email": "john@example.com",
+    "date_of_birth": "1956-03-15",
+    "hire_date": "1990-01-01",
+    "salary": "75000.00"
+}
 ```
 
-After line 18, assign values that you added on `CurrentUser`.
-
-## Top-level dependency
-
-**Note. Available from version 0.62 or higher.**
-
-Set a callable function when initialize FastAPI() app through `dependencies` argument.
-
-Refer `Logging` class inside of `core/fastapi/dependencies/logging.py` 
-
-## Dependencies for specific permissions
-
-Permissions `IsAdmin`, `IsAuthenticated`, `AllowAll` have already been implemented.
- 
-```python
-from core.fastapi.dependencies import (
-    PermissionDependency,
-    IsAdmin,
-)
-
-
-user_router = APIRouter()
-
-
-@user_router.get(
-    "",
-    response_model=List[GetUserListResponseSchema],
-    response_model_exclude={"id"},
-    responses={"400": {"model": ExceptionResponseSchema}},
-    dependencies=[Depends(PermissionDependency([IsAdmin]))],  # HERE
-)
-async def get_user_list(
-    limit: int = Query(10, description="Limit"),
-    prev: int = Query(None, description="Prev ID"),
-):
-    pass
+### Calculate Retirement
+```http
+GET /retirement-calculation/?calculation_date=2024-03-09
 ```
-Insert permission through `dependencies` argument.
+Optional query parameter:
+- `calculation_date`: Date to calculate retirements from (defaults to current date)
 
-If you want to make your own permission, inherit `BasePermission` and implement `has_permission()` function.
+## Documentation
 
-**Note. In order to use swagger's authorize function, you must put `PermissionDependency` as an argument of `dependencies`.**
+API documentation is available at:
+- Swagger UI: http://localhost:8000/docs
+- ReDoc: http://localhost:8000/redoc
 
-## Event dispatcher
+## Development with Docker
 
-Refer the README of https://github.com/teamhide/fastapi-event
+The application uses Docker volumes to enable hot-reloading in development. Any changes made to the local files will be reflected immediately in the running container.
 
-## Cache
-
-### Caching by prefix
-```python
-from core.helpers.cache import Cache
-
-
-@Cache.cached(prefix="get_user", ttl=60)
-async def get_user():
-    ...
+To view logs:
+```bash
+docker-compose logs -f api
 ```
 
-### Caching by tag
-```python
-from core.helpers.cache import Cache, CacheTag
-
-
-@Cache.cached(tag=CacheTag.GET_USER_LIST, ttl=60)
-async def get_user():
-    ...
+To stop the application:
+```bash
+docker-compose down
 ```
 
-Use the `Cache` decorator to cache the return value of a function.
+### Testing with Sample Data
 
-Depending on the argument of the function, caching is stored with a different value through internal processing.
+The seed data includes employees with various retirement scenarios to test different cases:
 
-### Custom Key builder
-
-```python
-from core.helpers.cache.base import BaseKeyMaker
-
-
-class CustomKeyMaker(BaseKeyMaker):
-    async def make(self, function: Callable, prefix: str) -> str:
-        ...
+1. Test June retirement calculation:
+```bash
+curl "http://localhost:8000/retirement-calculation/?calculation_date=2024-05-01"
 ```
 
-If you want to create a custom key, inherit the BaseKeyMaker class and implement the make() method.
-
-### Custom Backend
-
-```python
-from core.helpers.cache.base import BaseBackend
-
-
-class RedisBackend(BaseBackend):
-    async def get(self, key: str) -> Any:
-        ...
-
-    async def set(self, response: Any, key: str, ttl: int = 60) -> None:
-        ...
-
-    async def delete_startswith(self, value: str) -> None:
-        ...
+2. Test December retirement calculation:
+```bash
+curl "http://localhost:8000/retirement-calculation/?calculation_date=2024-11-01"
 ```
 
-If you want to create a custom key, inherit the BaseBackend class and implement the `get()`, `set()`, `delete_startswith()` method.
-
-Pass your custom backend or keymaker as an argument to init. (`/app/server.py`)
-
-```python
-def init_cache() -> None:
-    Cache.init(backend=RedisBackend(), key_maker=CustomKeyMaker())
-```
-
-### Remove all cache by prefix/tag
-
-```python
-from core.helpers.cache import Cache, CacheTag
-
-
-await Cache.remove_by_prefix(prefix="get_user_list")
-await Cache.remove_by_tag(tag=CacheTag.GET_USER_LIST)
-```
-
-
-### Migration
+Expected results:
+- June calculation will include John Doe
+- December calculation will include Jane Smith and William Brown
+- All calculations will include Maria Garcia (already at retirement age)
