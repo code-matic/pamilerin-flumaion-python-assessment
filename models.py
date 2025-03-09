@@ -1,13 +1,9 @@
 from datetime import date
-from decimal import Decimal
-from typing import List
-from sqlalchemy import Column, Integer, String, Date, Numeric, create_engine
+from sqlalchemy import Column, Integer, String, Date, Numeric
 from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.orm import sessionmaker
-from pydantic import BaseModel, EmailStr, Field
+from config import get_settings
 
 # SQLAlchemy setup
-SQLALCHEMY_DATABASE_URL = "sqlite+aiosqlite:///./retirement.db"
 Base = declarative_base()
 
 class Employee(Base):
@@ -33,39 +29,10 @@ class Employee(Base):
 
     @property
     def retirement_date(self) -> date:
-        """Calculate retirement date (when employee turns 67)."""
+        """Calculate retirement date based on configured retirement age."""
+        settings = get_settings()
         return date(
-            self.date_of_birth.year + 67,
+            self.date_of_birth.year + settings.RETIREMENT_AGE,
             self.date_of_birth.month,
             self.date_of_birth.day
-        )
-
-# Pydantic models
-class EmployeeBase(BaseModel):
-    """Base schema for Employee data."""
-    first_name: str = Field(..., min_length=1, max_length=50)
-    last_name: str = Field(..., min_length=1, max_length=50)
-    email: EmailStr
-    date_of_birth: date
-    hire_date: date
-    salary: Decimal = Field(..., ge=0)
-
-class EmployeeCreate(EmployeeBase):
-    """Schema for creating a new employee."""
-    pass
-
-class EmployeeResponse(EmployeeBase):
-    """Schema for employee response."""
-    id: int
-    age: int
-    retirement_date: date
-
-    class Config:
-        from_attributes = True
-
-class RetirementSummary(BaseModel):
-    """Schema for retirement summary response."""
-    retiring_employees: List[EmployeeResponse]
-    total_salary_liability: Decimal
-    calculation_date: date
-    next_calculation_date: date 
+        ) 
