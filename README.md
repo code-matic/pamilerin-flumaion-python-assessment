@@ -92,6 +92,40 @@ API documentation is available at:
 - Swagger UI: http://localhost:8000/docs
 - ReDoc: http://localhost:8000/redoc
 
+## Deployment
+
+The application is deployed on Google Cloud Run:
+- Base URL: https://flumaion-assessment-749119130796.us-central1.run.app
+- Swagger UI: https://flumaion-assessment-749119130796.us-central1.run.app/docs
+- ReDoc: https://flumaion-assessment-749119130796.us-central1.run.app/redoc
+- Health Check: https://flumaion-assessment-749119130796.us-central1.run.app/health
+
+### Testing the Deployed API
+
+1. Health Check:
+```bash
+curl https://flumaion-assessment-749119130796.us-central1.run.app/health
+```
+
+2. Create an Employee:
+```bash
+curl -X POST https://flumaion-assessment-749119130796.us-central1.run.app/employees/ \
+  -H "Content-Type: application/json" \
+  -d '{
+    "first_name": "John",
+    "last_name": "Doe",
+    "email": "john.doe@example.com",
+    "date_of_birth": "1960-01-01",
+    "hire_date": "2000-01-01",
+    "salary": 75000.00
+  }'
+```
+
+3. Calculate Retirement:
+```bash
+curl "https://flumaion-assessment-749119130796.us-central1.run.app/retirement-calculation/?calculation_date=2024-03-10"
+```
+
 ## Development with Docker
 
 The application uses Docker volumes to enable hot-reloading in development. Any changes made to the local files will be reflected immediately in the running container.
