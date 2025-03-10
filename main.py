@@ -19,6 +19,11 @@ async_session = sessionmaker(engine, class_=AsyncSession, expire_on_commit=False
 # FastAPI app
 app = FastAPI(title=settings.APP_NAME)
 
+@app.get("/health")
+async def health_check():
+    """Health check endpoint."""
+    return {"status": "healthy", "service": settings.APP_NAME}
+
 # Database dependency
 async def get_db():
     async with async_session() as session:
